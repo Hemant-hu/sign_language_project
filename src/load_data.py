@@ -1,379 +1,454 @@
 """
 load_data.py
 ============
-Step 1 — Download the WLASL-processed dataset from KaggleHub,
-automatically explore its structure, and return clean (X, y) arrays.
+Step 1 — Load the WLASL-processed dataset from KaggleHub.
 
-Supported dataset layouts (auto-detected):
-  A) Flat .npy files:  X.npy / y.npy  or  features.npy / labels.npy
-  B) Per-class folders of .npy sequences  (e.g.  data/HELLO/0.npy …)
-  C) A single CSV/JSON manifest with a 'path' + 'label' column
-  D) Pre-split train/test sub-folders
+Real dataset structure (what KaggleHub actually delivers):
+──────────────────────────────────────────────────────────
+  <root>/
+    WLASL_v0.3.json        ← full annotations: [{gloss, instances:[{video_id,...}]}]
+    nslt_100.json          ← 100-class split:  {train:[ids], val:[ids], test:[ids]}
+    nslt_300.json
+    nslt_1000.json
+    nslt_2000.json
+    videos/
+      00000.mp4
+      00001.mp4
+      …
 
-Run standalone for a quick dataset report:
-    python src/load_data.py
+Pipeline:
+  1. Read nslt_100.json  → get all video_ids
+  2. Read WLASL_v0.3.json → build {video_id: gloss} mapping
+  3. For each video: OpenCV frames → MediaPipe hand landmarks → (SEQ_LEN, 63) npy
+  4. Cache results so MediaPipe only runs once
+  5. Return X (N, SEQ_LEN, 63)  and  y (N,) label strings
+
+Run standalone:
+    python src/load_data.py [dataset_root] [max_videos]
 """
 
 from __future__ import annotations
 
 import os
+import sys
 import json
-import glob
-import pickle
 import collections
 import numpy as np
-import pandas as pd
+import cv2
 from pathlib import Path
-from typing import Tuple
+from tqdm import tqdm
+from typing import Optional
+
+try:
+    import mediapipe as mp
+    _MP_AVAILABLE = True
+except ImportError:
+    _MP_AVAILABLE = False
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 1.  Download
+# Constants
+# ──────────────────────────────────────────────────────────────────────────────
+
+SEQ_LEN       = 20    # frames per sample fed to the LSTM
+NUM_LANDMARKS = 21    # MediaPipe Hands keypoints
+NUM_FEATURES  = NUM_LANDMARKS * 3   # x, y, z → 63
+
+# Which nslt subset to use: 100 / 300 / 1000 / 2000
+# 100 → fastest; increase for a richer vocabulary
+NSLT_CLASSES  = 100
+
+_ROOT_DIR  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CACHE_DIR  = os.path.join(_ROOT_DIR, "data", "cache")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 1. Download
 # ──────────────────────────────────────────────────────────────────────────────
 
 def download_dataset() -> str:
-    """
-    Download the WLASL-processed dataset via KaggleHub.
-    Returns the local root path (str).
-    """
     try:
         import kagglehub
     except ImportError:
-        raise ImportError(
-            "kagglehub is not installed.\n"
-            "Run:  pip install kagglehub"
-        )
-
-    print("[load_data] Downloading dataset from KaggleHub …")
+        raise ImportError("Run:  pip install kagglehub")
+    print("[load_data] Downloading WLASL dataset from KaggleHub …")
     path = kagglehub.dataset_download("risangbaskoro/wlasl-processed")
-    print(f"[load_data] Dataset available at: {path}")
+    print(f"[load_data] Dataset root: {path}")
     return path
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 2.  Exploration helpers
+# 2. Exploration report
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _walk_extensions(root: str) -> collections.Counter:
-    """Return a Counter of file extensions found under root."""
-    counter: collections.Counter = collections.Counter()
-    for _, _, files in os.walk(root):
-        for f in files:
-            ext = Path(f).suffix.lower()
-            counter[ext] += 1
-    return counter
-
-
 def explore_dataset(root: str) -> None:
-    """
-    Print a human-readable summary of the dataset directory.
-    Called automatically during loading but can be run standalone.
-    """
     print("\n" + "=" * 60)
     print("  DATASET EXPLORATION REPORT")
     print("=" * 60)
     print(f"  Root : {root}")
 
-    ext_counts = _walk_extensions(root)
-    print(f"\n  File types found:")
-    for ext, count in sorted(ext_counts.items(), key=lambda x: -x[1]):
-        print(f"    {ext or '(no ext)':>10}  →  {count:,} files")
+    ext_counts: collections.Counter = collections.Counter()
+    for _, _, files in os.walk(root):
+        for f in files:
+            ext_counts[Path(f).suffix.lower()] += 1
 
-    # Top-level structure
+    print("\n  File types found:")
+    for ext, cnt in sorted(ext_counts.items(), key=lambda x: -x[1]):
+        print(f"    {ext or '(none)':>8}  →  {cnt:,}")
+
     top = sorted(os.listdir(root))
-    print(f"\n  Top-level entries ({len(top)} total):")
-    for entry in top[:20]:
-        full = os.path.join(root, entry)
-        kind = "DIR " if os.path.isdir(full) else "FILE"
-        print(f"    [{kind}] {entry}")
-    if len(top) > 20:
-        print(f"    … and {len(top) - 20} more")
+    print(f"\n  Top-level entries ({len(top)}):")
+    for e in top[:25]:
+        kind = "DIR " if os.path.isdir(os.path.join(root, e)) else "FILE"
+        print(f"    [{kind}] {e}")
     print("=" * 60 + "\n")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 3.  Layout detectors
+# 3. JSON parsing — handles the real WLASL annotation format
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _find_file(root: str, *names: str) -> str | None:
-    """Return the first existing file matching any of names (case-insensitive)."""
-    for dirpath, _, files in os.walk(root):
-        for f in files:
-            if f.lower() in [n.lower() for n in names]:
-                return os.path.join(dirpath, f)
-    return None
-
-
-def _try_layout_flat_npy(root: str) -> tuple | None:
-    """Layout A: X.npy + y.npy (or features.npy + labels.npy) in the same dir."""
-    x_file = _find_file(root, "X.npy", "features.npy", "x.npy", "data.npy")
-    y_file = _find_file(root, "y.npy", "labels.npy", "targets.npy", "label.npy")
-    if x_file and y_file:
-        print(f"[load_data] Layout A detected: flat .npy files")
-        print(f"  X → {x_file}")
-        print(f"  y → {y_file}")
-        X = np.load(x_file, allow_pickle=True)
-        y = np.load(y_file, allow_pickle=True)
-        return X, y
-    return None
-
-
-def _try_layout_class_folders(root: str) -> tuple | None:
+def _build_videoid_to_gloss(annotation_path: str) -> dict[str, str]:
     """
-    Layout B: root/CLASS_NAME/*.npy
-    Each subfolder is a class; each .npy file is one sequence sample.
+    Parse WLASL_v0.3.json.
+
+    Actual format:
+        [
+          {
+            "gloss": "book",
+            "instances": [
+              {"video_id": "00000", "split": "train", ...},
+              ...
+            ]
+          },
+          ...
+        ]
+
+    Returns {video_id_str: GLOSS_LABEL} — labels uppercased, spaces→underscore.
     """
-    subdirs = [d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d))]
-    if not subdirs:
-        return None
+    with open(annotation_path, "r", encoding="utf-8") as f:
+        raw = json.load(f)
 
-    # Check that at least some subdirs contain .npy files
-    npy_subdirs = [
-        d for d in subdirs
-        if glob.glob(os.path.join(root, d, "*.npy"))
-    ]
-    if not npy_subdirs:
-        return None
-
-    print(f"[load_data] Layout B detected: per-class folders "
-          f"({len(npy_subdirs)} classes with .npy files)")
-
-    X_list, y_list = [], []
-    for class_name in sorted(npy_subdirs):
-        class_dir = os.path.join(root, class_name)
-        npy_files = sorted(glob.glob(os.path.join(class_dir, "*.npy")))
-        for fpath in npy_files:
-            seq = np.load(fpath, allow_pickle=True)
-            X_list.append(seq)
-            y_list.append(class_name)
-
-    if not X_list:
-        return None
-
-    # Handle jagged sequences: pad to max length
-    X, y = _pad_sequences(X_list), np.array(y_list)
-    return X, y
-
-
-def _try_layout_csv_manifest(root: str) -> tuple | None:
-    """Layout C: CSV manifest with columns [path, label] or [file, gloss]."""
-    csv_file = _find_file(root, "wlasl_class_list.txt", "labels.csv",
-                          "manifest.csv", "data.csv", "index.csv")
-    if csv_file is None:
-        # try any .csv
-        csvs = glob.glob(os.path.join(root, "**", "*.csv"), recursive=True)
-        if csvs:
-            csv_file = csvs[0]
-
-    if csv_file is None:
-        return None
-
-    print(f"[load_data] Layout C detected: CSV manifest → {csv_file}")
-    df = pd.read_csv(csv_file)
-    print(f"  Columns: {list(df.columns)}")
-
-    # Normalise column names
-    df.columns = [c.strip().lower() for c in df.columns]
-    path_col  = next((c for c in df.columns if c in ("path", "file", "filepath", "video")), None)
-    label_col = next((c for c in df.columns if c in ("label", "gloss", "class", "sign", "target")), None)
-
-    if path_col is None or label_col is None:
-        print(f"  [WARN] Cannot map columns to (path, label). Skipping CSV layout.")
-        return None
-
-    X_list, y_list = [], []
-    for _, row in df.iterrows():
-        fpath = row[path_col]
-        if not os.path.isabs(fpath):
-            fpath = os.path.join(root, fpath)
-        if not os.path.exists(fpath):
-            continue
-        seq = np.load(fpath, allow_pickle=True)
-        X_list.append(seq)
-        y_list.append(str(row[label_col]))
-
-    if not X_list:
-        return None
-    return _pad_sequences(X_list), np.array(y_list)
-
-
-def _try_layout_train_test_split(root: str) -> tuple | None:
-    """Layout D: root/train/ and root/test/ sub-folders (each with class folders)."""
-    train_dir = os.path.join(root, "train")
-    if not os.path.isdir(train_dir):
-        return None
-
-    print(f"[load_data] Layout D detected: pre-split train/test folders")
-
-    def load_split(split_dir: str):
-        xs, ys = [], []
-        for class_name in sorted(os.listdir(split_dir)):
-            class_dir = os.path.join(split_dir, class_name)
-            if not os.path.isdir(class_dir):
-                continue
-            for fpath in sorted(glob.glob(os.path.join(class_dir, "*.npy"))):
-                xs.append(np.load(fpath, allow_pickle=True))
-                ys.append(class_name)
-        return xs, ys
-
-    X_train_l, y_train_l = load_split(train_dir)
-    test_dir = os.path.join(root, "test")
-    if os.path.isdir(test_dir):
-        X_test_l, y_test_l = load_split(test_dir)
-        all_X = X_train_l + X_test_l
-        all_y = y_train_l + y_test_l
+    # Normalise to a flat list of entries
+    if isinstance(raw, dict):
+        # Rare wrapper format — convert values to list
+        entries = list(raw.values())
+    elif isinstance(raw, list):
+        entries = raw
     else:
-        all_X, all_y = X_train_l, y_train_l
+        raise ValueError(f"Unexpected top-level JSON type: {type(raw)}")
 
-    if not all_X:
-        return None
-    return _pad_sequences(all_X), np.array(all_y)
+    mapping: dict[str, str] = {}
+    skipped_entries = 0
 
+    for entry in entries:
+        # Guard: entry must be a dict with a 'gloss' key
+        if not isinstance(entry, dict):
+            skipped_entries += 1
+            continue
 
-def _try_layout_wlasl_json(root: str) -> tuple | None:
-    """
-    Layout E: WLASL2000.json (official WLASL annotation format)
-    + video feature .npy files stored alongside.
-    """
-    json_file = _find_file(root, "WLASL2000.json", "wlasl2000.json",
-                           "wlasl_annotation.json", "nslt_2000.json")
-    if json_file is None:
-        return None
+        gloss = entry.get("gloss", "UNKNOWN")
+        if not isinstance(gloss, str):
+            skipped_entries += 1
+            continue
 
-    print(f"[load_data] Layout E detected: WLASL JSON annotations → {json_file}")
-    with open(json_file, "r") as f:
-        data = json.load(f)
+        label = gloss.strip().replace(" ", "_").upper()
 
-    X_list, y_list = [], []
-    for entry in data:
-        gloss = entry.get("gloss", "").replace(" ", "_").upper()
-        for instance in entry.get("instances", []):
-            vid_id = instance.get("video_id", "")
-            # look for a matching .npy file anywhere under root
-            candidates = glob.glob(os.path.join(root, "**", f"{vid_id}*.npy"),
-                                   recursive=True)
-            if not candidates:
+        instances = entry.get("instances", [])
+        if not isinstance(instances, list):
+            continue
+
+        for inst in instances:
+            if not isinstance(inst, dict):
                 continue
-            seq = np.load(candidates[0], allow_pickle=True)
-            X_list.append(seq)
-            y_list.append(gloss)
+            vid_id = inst.get("video_id", "")
+            # Normalise to 5-digit zero-padded string
+            try:
+                vid_id_str = str(int(vid_id)).zfill(5)
+            except (ValueError, TypeError):
+                vid_id_str = str(vid_id).zfill(5)
+            mapping[vid_id_str] = label
 
-    if not X_list:
-        return None
-    return _pad_sequences(X_list), np.array(y_list)
+    if skipped_entries:
+        print(f"[load_data] Skipped {skipped_entries} malformed annotation entries.")
+    print(f"[load_data] Annotation map built: {len(mapping):,} video_id → gloss pairs")
+    return mapping
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 4.  Sequence padding utility
-# ──────────────────────────────────────────────────────────────────────────────
-
-def _pad_sequences(seqs: list, target_len: int | None = None) -> np.ndarray:
+def _load_nslt_split(nslt_path: str) -> dict[str, list[str]]:
     """
-    Pad / truncate a list of variable-length numpy arrays to the same length.
-    Each array can be 1-D (features,) or 2-D (timesteps, features).
-    Returns shape (N, target_len, features).
+    Parse nslt_100.json (or nslt_300/1000/2000).
+
+    Format:
+        {"train": ["00000", "00001", ...], "val": [...], "test": [...]}
+
+    Returns the dict with video_ids normalised to 5-digit strings.
     """
-    # Ensure each element is at least 2-D
-    seqs_2d = []
-    for s in seqs:
-        s = np.array(s, dtype=np.float32)
-        if s.ndim == 1:
-            s = s.reshape(1, -1)   # treat whole array as one timestep
-        seqs_2d.append(s)
+    with open(nslt_path, "r", encoding="utf-8") as f:
+        raw = json.load(f)
 
-    # Decide target length
-    lengths = [s.shape[0] for s in seqs_2d]
-    if target_len is None:
-        target_len = int(np.median(lengths))   # use median to avoid outlier bias
-        print(f"[load_data] Sequence lengths: min={min(lengths)}, "
-              f"max={max(lengths)}, median={target_len} → using {target_len}")
-
-    features = seqs_2d[0].shape[1]
-    result   = np.zeros((len(seqs_2d), target_len, features), dtype=np.float32)
-
-    for i, s in enumerate(seqs_2d):
-        L = min(s.shape[0], target_len)
-        result[i, :L, :] = s[:L]
+    result: dict[str, list[str]] = {}
+    for split, ids in raw.items():
+        normalised = []
+        for i in ids:
+            try:
+                normalised.append(str(int(i)).zfill(5))
+            except (ValueError, TypeError):
+                normalised.append(str(i).zfill(5))
+        result[split] = normalised
+        print(f"[load_data] Split '{split}': {len(normalised):,} videos")
 
     return result
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 5.  Master load function
+# 4. Video → landmark sequence
 # ──────────────────────────────────────────────────────────────────────────────
 
-def load_dataset(root: str | None = None) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Auto-detect dataset layout and return (X, y).
+def _extract_frames(video_path: str, n_frames: int = 60) -> list[np.ndarray]:
+    """Sample n_frames evenly from the video; return list of BGR frames."""
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        return []
+    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    if total <= 0:
+        cap.release()
+        return []
+    n       = min(n_frames, total)
+    indices = np.linspace(0, total - 1, n, dtype=int)
+    frames  = []
+    for idx in indices:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, int(idx))
+        ret, frame = cap.read()
+        if ret:
+            frames.append(frame)
+    cap.release()
+    return frames
 
-    X : float32 array of shape  (N, sequence_length, features)
-    y : str array of shape  (N,)  containing class names
+
+def _normalize_landmarks(raw: np.ndarray) -> np.ndarray:
+    """
+    raw : (63,) — 21 landmarks × (x, y, z)
+    Translate so wrist (landmark 0) is at origin, then scale to [-1, 1].
+    """
+    pts   = raw.reshape(21, 3).copy()
+    pts  -= pts[0]
+    scale = np.abs(pts).max()
+    if scale > 1e-6:
+        pts /= scale
+    return pts.flatten().astype(np.float32)
+
+
+def _video_to_sequence(video_path: str, hands) -> Optional[np.ndarray]:
+    """
+    Full pipeline for one video:
+      frames → MediaPipe → normalise → pad/trim → (SEQ_LEN, 63)
+    Returns None if fewer than 4 hand-detected frames.
+    """
+    frames = _extract_frames(video_path, n_frames=60)
+    if not frames:
+        return None
+
+    landmark_frames: list[np.ndarray] = []
+    for frame in frames:
+        rgb     = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = hands.process(rgb)
+        if not results.multi_hand_landmarks:
+            continue
+        lms = results.multi_hand_landmarks[0].landmark
+        raw = np.array([[lm.x, lm.y, lm.z] for lm in lms]).flatten()
+        landmark_frames.append(_normalize_landmarks(raw))
+
+    if len(landmark_frames) < 4:
+        return None
+
+    L = len(landmark_frames)
+    if L >= SEQ_LEN:
+        idxs = np.linspace(0, L - 1, SEQ_LEN, dtype=int)
+        seq  = np.array([landmark_frames[i] for i in idxs])
+    else:
+        pad = SEQ_LEN - L
+        seq = np.array(landmark_frames + [landmark_frames[-1]] * pad)
+
+    assert seq.shape == (SEQ_LEN, NUM_FEATURES), f"Bad shape: {seq.shape}"
+    return seq.astype(np.float32)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 5. Master loader
+# ──────────────────────────────────────────────────────────────────────────────
+
+def load_dataset(
+    root: str | None = None,
+    nslt_classes: int = NSLT_CLASSES,
+    max_videos: int | None = None,
+    use_cache: bool = True,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Download (if needed), process, and return (X, y).
+
+    X : float32, shape (N, SEQ_LEN, NUM_FEATURES) = (N, 20, 63)
+    y : str,     shape (N,)  — gloss label per sample
 
     Parameters
     ----------
-    root : str, optional
-        Path returned by kagglehub.dataset_download().
-        If None, downloads automatically.
+    root          : local dataset path; None → download automatically
+    nslt_classes  : vocabulary size (100 / 300 / 1000 / 2000)
+    max_videos    : cap total videos for quick smoke-tests
+    use_cache     : load/save processed arrays to data/cache/ for fast re-runs
     """
+    if not _MP_AVAILABLE:
+        raise ImportError(
+            "mediapipe is required.\n"
+            "Run:  pip install mediapipe"
+        )
+
     if root is None:
         root = download_dataset()
 
     explore_dataset(root)
 
-    # Try layouts in order of specificity
-    for detector in [
-        _try_layout_flat_npy,
-        _try_layout_train_test_split,
-        _try_layout_wlasl_json,
-        _try_layout_class_folders,
-        _try_layout_csv_manifest,
-    ]:
-        result = detector(root)
-        if result is not None:
-            X, y = result
-            break
-    else:
+    # ── Locate required files ────────────────────────────────────────────────
+    annotation_file = os.path.join(root, "WLASL_v0.3.json")
+    nslt_file       = os.path.join(root, f"nslt_{nslt_classes}.json")
+    videos_dir      = os.path.join(root, "videos")
+
+    if not os.path.exists(annotation_file):
+        raise FileNotFoundError(f"WLASL_v0.3.json not found under {root}")
+    if not os.path.exists(nslt_file):
+        fallback = os.path.join(root, "nslt_100.json")
+        if os.path.exists(fallback):
+            print(f"[load_data] nslt_{nslt_classes}.json not found; using nslt_100.json")
+            nslt_file = fallback
+        else:
+            raise FileNotFoundError(f"nslt_{nslt_classes}.json not found under {root}")
+    if not os.path.isdir(videos_dir):
+        raise FileNotFoundError(f"'videos/' folder not found under {root}")
+
+    # ── Cache ────────────────────────────────────────────────────────────────
+    tag     = f"wlasl{nslt_classes}_seq{SEQ_LEN}_feat{NUM_FEATURES}"
+    tag    += f"_max{max_videos}" if max_videos else ""
+    cache_X = os.path.join(CACHE_DIR, f"{tag}_X.npy")
+    cache_y = os.path.join(CACHE_DIR, f"{tag}_y.npy")
+
+    if use_cache and os.path.exists(cache_X) and os.path.exists(cache_y):
+        print(f"[load_data] ✓ Loading from cache ({CACHE_DIR}) …")
+        X = np.load(cache_X).astype(np.float32)
+        y = np.load(cache_y, allow_pickle=True)
+        _print_summary(X, y)
+        return X, y
+
+    # ── Parse JSON ───────────────────────────────────────────────────────────
+    vid2gloss = _build_videoid_to_gloss(annotation_file)
+    splits    = _load_nslt_split(nslt_file)
+
+    # Collect all unique video_ids across all splits
+    seen: set[str] = set()
+    all_ids: list[str] = []
+    for split_ids in splits.values():
+        for vid in split_ids:
+            if vid not in seen:
+                seen.add(vid)
+                all_ids.append(vid)
+
+    if max_videos:
+        import random; random.shuffle(all_ids)
+        all_ids = all_ids[:max_videos]
+        print(f"[load_data] Capped at {max_videos} videos (smoke-test mode).")
+
+    print(f"\n[load_data] Processing {len(all_ids):,} videos with MediaPipe …")
+    print(f"[load_data] First run takes a few minutes. Results are cached afterwards.\n")
+
+    # ── MediaPipe processing ──────────────────────────────────────────────────
+    mp_hands  = mp.solutions.hands
+    X_list: list[np.ndarray] = []
+    y_list: list[str]        = []
+    skipped = 0
+
+    hands_cfg = dict(
+        static_image_mode        = False,
+        max_num_hands            = 1,
+        min_detection_confidence = 0.5,
+        min_tracking_confidence  = 0.5,
+    )
+
+    with mp_hands.Hands(**hands_cfg) as hands:
+        for vid_id in tqdm(all_ids, desc="Landmarks", unit="vid"):
+            # Try zero-padded filename first, then un-padded
+            vpath = os.path.join(videos_dir, f"{vid_id}.mp4")
+            if not os.path.exists(vpath):
+                vpath = os.path.join(videos_dir, f"{int(vid_id)}.mp4")
+            if not os.path.exists(vpath):
+                skipped += 1
+                continue
+
+            label = vid2gloss.get(vid_id)
+            if label is None:
+                skipped += 1
+                continue
+
+            seq = _video_to_sequence(vpath, hands)
+            if seq is None:
+                skipped += 1
+                continue
+
+            X_list.append(seq)
+            y_list.append(label)
+
+    print(f"\n[load_data] Extracted : {len(X_list):,} sequences")
+    print(f"[load_data] Skipped   : {skipped:,} (missing file / no hand detected)")
+
+    if not X_list:
         raise RuntimeError(
-            f"Could not auto-detect dataset layout under: {root}\n"
-            "Supported layouts:\n"
-            "  A) X.npy + y.npy\n"
-            "  B) CLASS_NAME/*.npy folders\n"
-            "  C) CSV manifest with [path, label] columns\n"
-            "  D) train/ and test/ sub-folders\n"
-            "  E) WLASL2000.json + per-video .npy files\n"
-            "Please inspect the dataset and adapt load_data.py accordingly."
+            "No sequences were extracted.\n"
+            "Check that:\n"
+            "  • videos/*.mp4 files actually exist\n"
+            "  • mediapipe is installed correctly\n"
+            "  • video_ids in JSON match filenames in videos/"
         )
 
-    # ── Ensure 3-D ──────────────────────────────────────────────────────────
-    if X.ndim == 2:
-        # (N, features) → (N, 1, features)
-        X = X.reshape(X.shape[0], 1, X.shape[1])
-        print(f"[load_data] Reshaped 2-D array → {X.shape}")
+    X = np.array(X_list, dtype=np.float32)
+    y = np.array(y_list)
 
-    # ── Final report ────────────────────────────────────────────────────────
-    unique_labels, counts = np.unique(y, return_counts=True)
-    print("\n" + "─" * 50)
-    print("  DATASET SUMMARY")
-    print("─" * 50)
-    print(f"  Total samples     : {len(X):,}")
-    print(f"  Unique classes    : {len(unique_labels)}")
-    print(f"  Sequence shape    : {X.shape[1:]}")
-    print(f"  X dtype           : {X.dtype}")
-    print(f"\n  Class distribution (top 15):")
-    top_idx = np.argsort(-counts)[:15]
-    for i in top_idx:
-        bar = "█" * min(int(counts[i] / counts.max() * 20), 20)
-        print(f"    {unique_labels[i]:>20}  {counts[i]:>4}  {bar}")
-    print("─" * 50 + "\n")
+    # ── Save cache ────────────────────────────────────────────────────────────
+    if use_cache:
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        np.save(cache_X, X)
+        np.save(cache_y, y)
+        print(f"[load_data] Cached X → {cache_X}")
+        print(f"[load_data] Cached y → {cache_y}")
 
-    return X.astype(np.float32), y
+    _print_summary(X, y)
+    return X, y
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# CLI entry point
+# 6. Summary printer
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _print_summary(X: np.ndarray, y: np.ndarray) -> None:
+    unique, counts = np.unique(y, return_counts=True)
+    print("\n" + "─" * 55)
+    print("  DATASET SUMMARY")
+    print("─" * 55)
+    print(f"  Total samples   : {len(X):,}")
+    print(f"  Unique classes  : {len(unique)}")
+    print(f"  Sequence shape  : {X.shape[1:]}")
+    print(f"  X dtype         : {X.dtype}")
+    print(f"\n  Top 15 classes by count:")
+    top = np.argsort(-counts)[:15]
+    for i in top:
+        bar = "█" * min(int(counts[i] / counts.max() * 25), 25)
+        print(f"    {unique[i]:>25}  {counts[i]:>4}  {bar}")
+    print("─" * 55 + "\n")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# CLI
 # ──────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    import sys
-    root_path = sys.argv[1] if len(sys.argv) > 1 else None
-    X, y = load_dataset(root_path)
-    print(f"Loaded  X={X.shape}  y={y.shape}")
+    root_arg    = sys.argv[1] if len(sys.argv) > 1 else None
+    max_vid_arg = int(sys.argv[2]) if len(sys.argv) > 2 else None
+    X, y = load_dataset(root_arg, max_videos=max_vid_arg)
+    print(f"X : {X.shape}  dtype={X.dtype}")
+    print(f"y : {y.shape}  sample={y[:5]}")
