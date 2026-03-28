@@ -1,0 +1,869 @@
+{
+  "I": {
+    "WANT": 1,
+    "LIKE": 1,
+    "NEED": 1,
+    "SEE": 1,
+    "GO": 1,
+    "EAT": 1
+  },
+  "YOU": {
+    "WANT": 1,
+    "GO": 1,
+    "EAT": 1,
+    "LIKE": 1,
+    "SEE": 1
+  },
+  "WE": {
+    "GO": 1,
+    "EAT": 1,
+    "NEED": 1,
+    "WANT": 1,
+    "MAKE": 1
+  },
+  "WANT": {
+    "FOOD": 1,
+    "WATER": 1,
+    "GO": 1,
+    "EAT": 1,
+    "DRINK": 1,
+    "WANT": 12,
+    "BUT": 2,
+    "BOOK": 2,
+    "GIVE": 2
+  },
+  "NEED": {
+    "FOOD": 1,
+    "WATER": 1,
+    "HELP": 1,
+    "GO": 1,
+    "WORK": 1,
+    "NEED": 6,
+    "APPLE": 2,
+    "PAINT": 2,
+    "DRINK": 2
+  },
+  "LIKE": {
+    "FOOD": 1,
+    "SCHOOL": 1,
+    "WORK": 1,
+    "EAT": 1,
+    "LIKE": 12,
+    "ORANGE": 2,
+    "WHO": 4,
+    "COUSIN": 2
+  },
+  "EAT": {
+    "FOOD": 1,
+    "WHAT": 1,
+    "WHERE": 1,
+    "YES": 1,
+    "NO": 1,
+    "GO": 2,
+    "EAT": 6,
+    "WALK": 4,
+    "BLACK": 2
+  },
+  "DRINK": {
+    "WATER": 1,
+    "WHAT": 1,
+    "YES": 1,
+    "NO": 1,
+    "DRINK": 14,
+    "DANCE": 2,
+    "GO": 4,
+    "TALL": 2,
+    "MANY": 2,
+    "HAT": 2,
+    "BEFORE": 2,
+    "BASKETBALL": 2
+  },
+  "GO": {
+    "HOME": 1,
+    "SCHOOL": 1,
+    "WORK": 1,
+    "WHERE": 1,
+    "SAME": 2,
+    "GO": 10,
+    "CHAIR": 2,
+    "STUDY": 2,
+    "TALL": 2,
+    "NOW": 2,
+    "COUSIN": 2,
+    "BUT": 2,
+    "ENJOY": 2,
+    "DRINK": 2,
+    "PLAY": 2
+  },
+  "HELLO": {
+    "HOW": 1,
+    "WHAT": 1,
+    "YOU": 1,
+    "I": 1
+  },
+  "THANK_YOU": {
+    "YES": 1,
+    "OK": 1,
+    "BYE": 1
+  },
+  "SORRY": {
+    "PLEASE": 1,
+    "NO": 1,
+    "YES": 1
+  },
+  "WHAT": {
+    "YOU": 1,
+    "WE": 1,
+    "I": 1,
+    "WANT": 1,
+    "NEED": 1,
+    "BASKETBALL": 2,
+    "WHITE": 2,
+    "MOTHER": 2,
+    "LETTER": 2,
+    "MEET": 2,
+    "WHAT": 8,
+    "DEAF": 2,
+    "DRINK": 2,
+    "BEFORE": 2
+  },
+  "WHERE": {
+    "HOME": 1,
+    "SCHOOL": 1,
+    "WORK": 1,
+    "GO": 1
+  },
+  "HOW": {
+    "YOU": 1,
+    "I": 1,
+    "WE": 1,
+    "GO": 1,
+    "TALL": 2,
+    "HOW": 11,
+    "APPLE": 2
+  },
+  "PLEASE": {
+    "HELP": 1,
+    "GO": 1,
+    "GIVE": 1,
+    "MAKE": 1
+  },
+  "GIVE": {
+    "FOOD": 1,
+    "WATER": 1,
+    "PLEASE": 1,
+    "GO": 2,
+    "GIVE": 6,
+    "ALL": 2,
+    "DRINK": 2,
+    "ENJOY": 2,
+    "DARK": 2,
+    "LETTER": 2,
+    "CHEAT": 2
+  },
+  "SEE": {
+    "YOU": 1,
+    "I": 1,
+    "HOME": 1,
+    "SCHOOL": 1
+  },
+  "MAKE": {
+    "FOOD": 1,
+    "WORK": 1,
+    "HOME": 1
+  },
+  "ORANGE": {
+    "CITY": 1,
+    "HEARING": 2,
+    "ORANGE": 10,
+    "APPLE": 2,
+    "EAT": 2,
+    "WORK": 2
+  },
+  "CITY": {
+    "CITY": 10,
+    "SHIRT": 2,
+    "KISS": 2,
+    "CHEAT": 2,
+    "FULL": 2
+  },
+  "SHIRT": {
+    "SHIRT": 16,
+    "WHO": 2,
+    "WANT": 2,
+    "SECRETARY": 2,
+    "LETTER": 2
+  },
+  "WHO": {
+    "WHO": 10,
+    "BUT": 2,
+    "TIME": 2,
+    "BROWN": 2,
+    "DRINK": 2,
+    "HOT": 2,
+    "JACKET": 2,
+    "MEET": 2,
+    "PAPER": 2,
+    "HELP": 2
+  },
+  "BUT": {
+    "PLAY": 2,
+    "BOOK": 2,
+    "BUT": 4,
+    "PAINT": 2,
+    "DECIDE": 2,
+    "BIRTHDAY": 2
+  },
+  "PLAY": {
+    "BIRTHDAY": 2,
+    "PLAY": 10,
+    "SAME": 2,
+    "DOG": 2,
+    "COOL": 2,
+    "MAN": 2,
+    "SON": 2
+  },
+  "BIRTHDAY": {
+    "MAN": 2,
+    "LAST": 2,
+    "FINE": 4,
+    "BIRTHDAY": 2,
+    "BASKETBALL": 2
+  },
+  "MAN": {
+    "MANY": 2,
+    "PINK": 2,
+    "MAN": 12,
+    "BLUE": 2,
+    "PLAY": 2,
+    "LETTER": 2,
+    "GRADUATE": 2
+  },
+  "MANY": {
+    "TELL": 2,
+    "MANY": 10,
+    "COOK": 2,
+    "NO": 2,
+    "BOWLING": 2,
+    "DRINK": 2
+  },
+  "TELL": {
+    "HOW": 2,
+    "GO": 2,
+    "SON": 2,
+    "TELL": 8,
+    "YES": 2,
+    "HELP": 2,
+    "HOT": 2
+  },
+  "TALL": {
+    "TALL": 10,
+    "BIRD": 2,
+    "HAT": 2,
+    "DEAF": 2,
+    "GO": 2,
+    "FISH": 2,
+    "NO": 2,
+    "WANT": 2,
+    "CANDY": 2
+  },
+  "BIRD": {
+    "BIRD": 12,
+    "COLOR": 2,
+    "MEDICINE": 2,
+    "BLACK": 2,
+    "BROWN": 2
+  },
+  "COLOR": {
+    "COLOR": 8,
+    "JACKET": 2,
+    "BIRTHDAY": 2,
+    "DARK": 2,
+    "DOCTOR": 2
+  },
+  "JACKET": {
+    "YES": 2,
+    "JACKET": 8,
+    "CHANGE": 4
+  },
+  "YES": {
+    "YES": 12,
+    "DOCTOR": 4,
+    "WORK": 2,
+    "DRINK": 2,
+    "TELL": 2,
+    "SCHOOL": 2
+  },
+  "DOCTOR": {
+    "DOG": 2,
+    "PURPLE": 2,
+    "DOCTOR": 10,
+    "MANY": 2,
+    "YES": 4
+  },
+  "DOG": {
+    "DOG": 14,
+    "DOCTOR": 2,
+    "PIZZA": 4,
+    "FINISH": 2
+  },
+  "PURPLE": {
+    "BEFORE": 2,
+    "PURPLE": 8,
+    "EAT": 2,
+    "COW": 2,
+    "CORN": 2
+  },
+  "BEFORE": {
+    "BEFORE": 18,
+    "BASKETBALL": 6,
+    "CHEAT": 4,
+    "ALL": 2,
+    "WHAT": 2
+  },
+  "BASKETBALL": {
+    "DRINK": 2,
+    "BROWN": 2,
+    "BASKETBALL": 6,
+    "WHAT": 4,
+    "HELP": 2,
+    "BEFORE": 2,
+    "LETTER": 2,
+    "COOL": 2,
+    "NO": 2
+  },
+  "DANCE": {
+    "DANCE": 4,
+    "HEARING": 2,
+    "WOMAN": 2,
+    "HELP": 2,
+    "DARK": 2,
+    "WHITE": 2
+  },
+  "HEARING": {
+    "HEARING": 6,
+    "DARK": 2,
+    "DECIDE": 2,
+    "DANCE": 4,
+    "WHO": 2
+  },
+  "DARK": {
+    "AFRICA": 2,
+    "WHITE": 2,
+    "TALL": 2,
+    "CHAIR": 2,
+    "DARK": 4,
+    "THIN": 2,
+    "CANDY": 2,
+    "HOT": 2,
+    "BIRD": 2,
+    "DOG": 2,
+    "WORK": 2
+  },
+  "AFRICA": {
+    "WHITE": 2,
+    "TALL": 2,
+    "AFRICA": 8,
+    "THURSDAY": 2,
+    "PAINT": 2,
+    "CHANGE": 2
+  },
+  "WHITE": {
+    "DARK": 2,
+    "WHITE": 10,
+    "SHIRT": 2,
+    "BUT": 2,
+    "WHO": 2,
+    "PAPER": 2
+  },
+  "BOOK": {
+    "BOOK": 4,
+    "HAT": 2,
+    "PAINT": 2,
+    "LANGUAGE": 2,
+    "TIME": 2
+  },
+  "HAT": {
+    "HAT": 8,
+    "BROWN": 2,
+    "TELL": 2,
+    "LAST": 2,
+    "BOWLING": 2
+  },
+  "BROWN": {
+    "HELP": 2,
+    "ALL": 2,
+    "BROWN": 6,
+    "CLOTHES": 2,
+    "WHO": 2,
+    "CAN": 2
+  },
+  "HELP": {
+    "HEARING": 2,
+    "WORK": 2,
+    "ALL": 2,
+    "BLUE": 2,
+    "HELP": 12,
+    "BIRD": 2,
+    "FORGET": 2,
+    "TELL": 2,
+    "HOW": 2
+  },
+  "DECIDE": {
+    "HOW": 2,
+    "DECIDE": 10,
+    "CAN": 2,
+    "LATER": 2,
+    "TELL": 2
+  },
+  "APPLE": {
+    "APPLE": 14,
+    "SON": 2,
+    "HEARING": 2,
+    "EAT": 2,
+    "CLOTHES": 2
+  },
+  "SON": {
+    "NOW": 2,
+    "PIZZA": 2,
+    "CHEAT": 2,
+    "TELL": 2,
+    "SON": 6,
+    "PLAY": 2,
+    "ACCIDENT": 2,
+    "YES": 2
+  },
+  "NOW": {
+    "NO": 2,
+    "NOW": 12,
+    "GIVE": 2,
+    "THANKSGIVING": 2
+  },
+  "NO": {
+    "WHAT": 2,
+    "SAME": 2,
+    "TALL": 2,
+    "NO": 12,
+    "FAMILY": 2,
+    "DANCE": 2
+  },
+  "ALL": {
+    "NOW": 2,
+    "FINE": 2,
+    "LAST": 2,
+    "ALL": 6,
+    "LETTER": 2,
+    "MAN": 2
+  },
+  "SAME": {
+    "SAME": 10,
+    "PINK": 2,
+    "BEFORE": 2,
+    "NO": 2,
+    "YES": 2
+  },
+  "PINK": {
+    "SAME": 2,
+    "PINK": 6,
+    "MAN": 4,
+    "BASKETBALL": 2,
+    "PIZZA": 2,
+    "COW": 2
+  },
+  "CHEAT": {
+    "MOTHER": 2,
+    "DEAF": 2,
+    "CHEAT": 4,
+    "HAT": 2,
+    "FINE": 2,
+    "FINISH": 2,
+    "TABLE": 2,
+    "GIVE": 2,
+    "WALK": 2
+  },
+  "MOTHER": {
+    "COOL": 2,
+    "WOMAN": 2,
+    "MOTHER": 12,
+    "PINK": 2,
+    "LIKE": 2,
+    "SON": 2
+  },
+  "COOL": {
+    "COOL": 18,
+    "DEAF": 2,
+    "PULL": 2,
+    "COMPUTER": 2,
+    "FORGET": 2,
+    "COW": 2,
+    "SECRETARY": 2,
+    "COLOR": 2
+  },
+  "DEAF": {
+    "DEAF": 14,
+    "COOL": 2,
+    "PULL": 2,
+    "TALL": 2,
+    "THIN": 2
+  },
+  "PULL": {
+    "BLACK": 2,
+    "BEFORE": 2,
+    "PULL": 10,
+    "CHAIR": 2,
+    "WHO": 2
+  },
+  "BLACK": {
+    "WANT": 2,
+    "MOTHER": 2,
+    "BIRTHDAY": 2,
+    "CHEAT": 2,
+    "ACCIDENT": 2,
+    "PIZZA": 2,
+    "BLACK": 4,
+    "FISH": 2,
+    "SHORT": 2
+  },
+  "PAINT": {
+    "KISS": 2,
+    "RIGHT": 2,
+    "BUT": 2,
+    "LANGUAGE": 2,
+    "CITY": 2,
+    "SHORT": 2,
+    "AFRICA": 2
+  },
+  "KISS": {
+    "KISS": 10,
+    "STUDY": 2,
+    "MOTHER": 2,
+    "SHIRT": 2,
+    "DARK": 2
+  },
+  "STUDY": {
+    "BLACK": 2,
+    "STUDY": 8,
+    "PULL": 2,
+    "COMPUTER": 2,
+    "ORANGE": 2,
+    "EAT": 2,
+    "PURPLE": 2
+  },
+  "WOMAN": {
+    "WOMAN": 14,
+    "BED": 2,
+    "HEARING": 2,
+    "PLAY": 2,
+    "BASKETBALL": 2
+  },
+  "BED": {
+    "BLUE": 2,
+    "YEAR": 2,
+    "BED": 16,
+    "COOL": 2,
+    "BEFORE": 2,
+    "JACKET": 2
+  },
+  "BLUE": {
+    "MEDICINE": 2,
+    "BLUE": 8,
+    "KISS": 2,
+    "HELP": 2,
+    "THURSDAY": 2
+  },
+  "MEDICINE": {
+    "MEDICINE": 6,
+    "BIRD": 2,
+    "LAST": 2,
+    "BLACK": 2,
+    "WOMAN": 2,
+    "PINK": 2
+  },
+  "LAST": {
+    "LAST": 14,
+    "FAMILY": 2,
+    "KISS": 2,
+    "GRADUATE": 2,
+    "GIVE": 2,
+    "LATER": 2
+  },
+  "FAMILY": {
+    "AFRICA": 4,
+    "DOG": 2,
+    "FAMILY": 12,
+    "LIKE": 4
+  },
+  "CHAIR": {
+    "GO": 2,
+    "CHAIR": 6,
+    "PAINT": 2,
+    "DARK": 2,
+    "THANKSGIVING": 2
+  },
+  "RIGHT": {
+    "RIGHT": 8,
+    "CHEAT": 2,
+    "DARK": 2,
+    "WHO": 2,
+    "HOT": 2,
+    "TABLE": 2
+  },
+  "SECRETARY": {
+    "MEDICINE": 2,
+    "SECRETARY": 10,
+    "GO": 2,
+    "TALL": 2,
+    "COOK": 2,
+    "FINISH": 2
+  },
+  "GRADUATE": {
+    "DARK": 2,
+    "GRADUATE": 14,
+    "MEET": 4
+  },
+  "FISH": {
+    "GO": 2,
+    "THURSDAY": 2,
+    "FISH": 10,
+    "BLACK": 2,
+    "THANKSGIVING": 2,
+    "STUDY": 2
+  },
+  "THANKSGIVING": {
+    "THANKSGIVING": 14,
+    "APPLE": 2,
+    "COUSIN": 2,
+    "CANDY": 2,
+    "YEAR": 2,
+    "WRONG": 4
+  },
+  "WORK": {
+    "WORK": 12,
+    "PIZZA": 2,
+    "RIGHT": 2,
+    "FULL": 2,
+    "ACCIDENT": 2
+  },
+  "PIZZA": {
+    "PIZZA": 12,
+    "RIGHT": 2,
+    "CHAIR": 2,
+    "YEAR": 2,
+    "PLAY": 2,
+    "COOK": 2,
+    "BOOK": 2
+  },
+  "THIN": {
+    "THIN": 24,
+    "WHITE": 2,
+    "FAMILY": 2,
+    "BLACK": 2,
+    "PULL": 2
+  },
+  "CAN": {
+    "CAN": 8,
+    "SECRETARY": 2,
+    "FULL": 2,
+    "MAN": 2,
+    "SHORT": 2,
+    "PINK": 2
+  },
+  "COUSIN": {
+    "COUSIN": 16,
+    "THANKSGIVING": 6,
+    "FULL": 2,
+    "LIKE": 2,
+    "DECIDE": 2
+  },
+  "CANDY": {
+    "GO": 2,
+    "CANDY": 18,
+    "BROWN": 2,
+    "SECRETARY": 4
+  },
+  "FINE": {
+    "FINE": 10,
+    "HELP": 4,
+    "WOMAN": 2,
+    "PURPLE": 2
+  },
+  "TIME": {
+    "TIME": 6,
+    "FISH": 2,
+    "THURSDAY": 4,
+    "CHANGE": 2,
+    "SHORT": 2
+  },
+  "THURSDAY": {
+    "THURSDAY": 10,
+    "TIME": 4,
+    "CITY": 2,
+    "ORANGE": 2,
+    "WALK": 2,
+    "THIN": 2
+  },
+  "CLOTHES": {
+    "CANDY": 2,
+    "CLOTHES": 4,
+    "RIGHT": 2,
+    "SHORT": 2
+  },
+  "ENJOY": {
+    "ENJOY": 10,
+    "BIRTHDAY": 2,
+    "COLOR": 2,
+    "DANCE": 2
+  },
+  "YEAR": {
+    "COMPUTER": 2,
+    "YEAR": 12,
+    "STUDY": 2,
+    "BED": 2,
+    "CAN": 2
+  },
+  "COMPUTER": {
+    "COMPUTER": 22,
+    "THURSDAY": 2,
+    "STUDY": 2,
+    "MOTHER": 2
+  },
+  "COOK": {
+    "MEET": 2,
+    "COOK": 10,
+    "SHORT": 2,
+    "FAMILY": 2
+  },
+  "MEET": {
+    "MEDICINE": 2,
+    "BOOK": 2,
+    "WHAT": 2,
+    "MEET": 6,
+    "COUSIN": 2,
+    "TABLE": 2,
+    "WHO": 2
+  },
+  "HOT": {
+    "HOT": 10,
+    "GIVE": 4,
+    "DARK": 2,
+    "GRADUATE": 2,
+    "PURPLE": 2
+  },
+  "FORGET": {
+    "LETTER": 2,
+    "FORGET": 6,
+    "WHAT": 4,
+    "ACCIDENT": 2
+  },
+  "LETTER": {
+    "FAMILY": 2,
+    "LETTER": 6,
+    "GIVE": 2,
+    "MEET": 2,
+    "WHAT": 2,
+    "ACCIDENT": 2,
+    "STUDY": 2,
+    "DECIDE": 2,
+    "COUSIN": 2
+  },
+  "WALK": {
+    "WALK": 14,
+    "NEED": 4,
+    "BED": 2,
+    "RIGHT": 2
+  },
+  "FULL": {
+    "LANGUAGE": 2,
+    "FULL": 12,
+    "LAST": 2,
+    "COLOR": 2,
+    "CAN": 2
+  },
+  "LANGUAGE": {
+    "LANGUAGE": 14,
+    "SCHOOL": 2,
+    "CLOTHES": 2,
+    "CITY": 2
+  },
+  "SCHOOL": {
+    "SCHOOL": 12,
+    "CORN": 2,
+    "WRONG": 2,
+    "MANY": 2
+  },
+  "CORN": {
+    "CORN": 16,
+    "BED": 2,
+    "SON": 2,
+    "COW": 2,
+    "BASKETBALL": 2
+  },
+  "SHORT": {
+    "BED": 2,
+    "SHORT": 14,
+    "CORN": 2,
+    "TIME": 2,
+    "PAINT": 2,
+    "AFRICA": 2,
+    "TABLE": 2
+  },
+  "FINISH": {
+    "FINISH": 12,
+    "CORN": 2,
+    "SON": 2,
+    "ENJOY": 2
+  },
+  "TABLE": {
+    "TABLE": 2,
+    "CHEAT": 2,
+    "CAN": 2,
+    "WRONG": 2,
+    "PINK": 2
+  },
+  "CHANGE": {
+    "CHANGE": 16,
+    "PAINT": 2,
+    "ORANGE": 2,
+    "BOWLING": 2,
+    "SON": 2
+  },
+  "LATER": {
+    "LATER": 18,
+    "COW": 2,
+    "LETTER": 2,
+    "COUSIN": 2
+  },
+  "COW": {
+    "COW": 8,
+    "COOL": 4,
+    "ALL": 2,
+    "BOWLING": 4
+  },
+  "ACCIDENT": {
+    "HOT": 2,
+    "ACCIDENT": 16,
+    "FORGET": 4,
+    "BLACK": 2,
+    "THIN": 2
+  },
+  "BOWLING": {
+    "BOWLING": 16,
+    "YEAR": 2,
+    "FISH": 2,
+    "SHIRT": 2,
+    "MANY": 2,
+    "LATER": 2
+  },
+  "WRONG": {
+    "SCHOOL": 2,
+    "FISH": 2,
+    "WRONG": 8,
+    "NEED": 2,
+    "DOCTOR": 2
+  },
+  "PAPER": {
+    "PAPER": 12,
+    "MEDICINE": 2,
+    "BLUE": 2
+  }
+}

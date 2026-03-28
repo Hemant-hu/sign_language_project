@@ -1,0 +1,8 @@
+{
+  "sequence_length": 20,
+  "num_features": 63,
+  "num_classes": 100,
+  "test_accuracy": 0.19704432785511017,
+  "test_loss": 3.500067949295044,
+  "epochs_trained": 30
+}
