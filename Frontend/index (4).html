@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign Language to Text</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg2: #f7f7f5;
+    --bg3: #f0efe9;
+    --border: rgba(0,0,0,0.12);
+    --border2: rgba(0,0,0,0.22);
+    --text: #1a1a1a;
+    --text2: #666;
+    --text3: #999;
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1e1e;
+      --bg2: #2a2a2a;
+      --bg3: #333;
+      --border: rgba(255,255,255,0.12);
+      --border2: rgba(255,255,255,0.22);
+      --text: #f0f0f0;
+      --text2: #aaa;
+      --text3: #666;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg3);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  header {
+    max-width: 1100px;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  h1 { font-size: 18px; font-weight: 500; }
+  .subtitle { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+  .layout {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 16px;
+  }
+  @media (max-width: 760px) {
+    .layout { grid-template-columns: 1fr; }
+    .right-col { display: grid; grid-template-columns: 1fr 1fr; }
+    .sentence-card { grid-column: 1 / -1; }
+  }
+
+  .card {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .card-inner { padding: 16px; }
+  .card-header {
+    padding: 12px 16px;
+    border-bottom: 0.5px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+  }
+
+  /* Camera */
+  .cam-wrap {
+    display: flex;
+    flex-direction: column;
+  }
+  .video-area {
+    position: relative;
+    background: #111;
+    aspect-ratio: 4/3;
+  }
+  video, #overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  #overlay { pointer-events: none; }
+  .video-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    gap: 10px;
+  }
+  .cam-icon {
+    width: 48px;
+    height: 48px;
+    border: 2px solid #444;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cam-controls {
+    padding: 12px 16px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    border-top: 0.5px solid var(--border);
+  }
+
+  /* Status dot */
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #ccc;
+    display: inline-block;
+    margin-right: 6px;
+    flex-shrink: 0;
+  }
+  .dot.on { background: var(--green); }
+  .dot.detecting { background: var(--amber); animation: blink 1s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* Buttons */
+  button {
+    padding: 7px 16px;
+    font-size: 13px;
+    border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border2);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+  button:hover { background: var(--bg2); }
+  button:active { transform: scale(0.97); }
+  button.primary {
+    background: var(--text);
+    color: var(--bg);
+    border-color: var(--text);
+  }
+  button.primary:hover { opacity: 0.85; }
+  button:disabled { opacity: 0.38; cursor: not-allowed; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+  /* Mode toggle */
+  .mode-toggle {
+    display: flex;
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    margin-left: auto;
+  }
+  .mode-btn {
+    border: none;
+    border-radius: 0;
+    padding: 5px 12px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .mode-btn.active { background: var(--text); color: var(--bg); }
+
+  /* Current sign */
+  .sign-display {
+    font-size: 44px;
+    font-weight: 500;
+    line-height: 1.1;
+    min-height: 56px;
+    letter-spacing: -0.5px;
+    transition: all 0.2s;
+  }
+  .sign-display.empty { font-size: 22px; font-weight: 400; color: var(--text3); }
+  .sign-flash { animation: flash 0.25s ease-out; }
+  @keyframes flash { 0%{opacity:0.3;transform:scale(0.95)} 100%{opacity:1;transform:scale(1)} }
+
+  /* Confidence bars */
+  .conf-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 7px;
+  }
+  .conf-name {
+    font-size: 12px;
+    color: var(--text2);
+    width: 90px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .conf-track {
+    flex: 1;
+    height: 5px;
+    background: var(--bg2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .conf-fill {
+    height: 100%;
+    background: var(--text);
+    border-radius: 3px;
+    transition: width 0.35s ease;
+  }
+  .conf-pct { font-size: 11px; color: var(--text2); width: 32px; text-align: right; flex-shrink: 0; }
+
+  /* Next signs */
+  .chips { display: flex; gap: 7px; flex-wrap: wrap; min-height: 34px; align-items: center; }
+  .chip {
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 0.5px solid var(--border2);
+    font-size: 13px;
+    color: var(--text2);
+    background: var(--bg2);
+    transition: all 0.2s;
+  }
+  .chip.top {
+    border-color: var(--text);
+    color: var(--text);
+    background: var(--bg);
+    font-weight: 500;
+  }
+  .chip.empty { color: var(--text3); border-style: dashed; font-size: 12px; }
+
+  /* Sentence */
+  .sentence-text {
+    font-size: 18px;
+    line-height: 1.6;
+    min-height: 54px;
+    color: var(--text);
+    word-break: break-word;
+  }
+  .sentence-text.empty { font-size: 15px; color: var(--text3); font-weight: 400; }
+  .history-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+  }
+  .hist-chip {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    background: var(--bg2);
+    color: var(--text2);
+    border: 0.5px solid var(--border);
+  }
+  .hist-chip.latest {
+    background: var(--bg);
+    color: var(--text);
+    border-color: var(--border2);
+    font-weight: 500;
+  }
+  .sentence-actions { display: flex; gap: 6px; margin-top: 14px; }
+
+  /* API config */
+  .api-row { display: flex; gap: 6px; margin-top: 8px; }
+  .api-input {
+    flex: 1;
+    padding: 7px 10px;
+    font-size: 12px;
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm);
+    background: var(--bg2);
+    color: var(--text);
+    font-family: inherit;
+  }
+  .api-input:focus { outline: none; border-color: var(--blue); }
+  .err { font-size: 12px; color: var(--red); min-height: 18px; margin-top: 5px; }
+  .ok  { font-size: 12px; color: var(--green); min-height: 18px; margin-top: 5px; }
+
+  /* Right col */
+  .right-col { display: flex; flex-direction: column; gap: 12px; }
+  .right-col .card { overflow: visible; }
+
+  /* Interval slider */
+  .slider-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  input[type=range] { flex: 1; cursor: pointer; }
+  .slider-val { font-size: 12px; color: var(--text2); min-width: 40px; }
+
+  .fps-badge { font-size: 11px; color: var(--text3); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Sign Language to Text</h1>
+    <div class="subtitle">Live sign detection with next-sign prediction</div>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- LEFT: Camera -->
+  <div class="card cam-wrap">
+    <div class="card-header">
+      <span style="display:flex;align-items:center;font-size:14px;font-weight:500">
+        <span class="dot" id="dot"></span>Live camera
+      </span>
+      <span style="display:flex;align-items:center;gap:12px">
+        <span class="fps-badge" id="fps-badge"></span>
+        <span style="font-size:12px;color:var(--text2)" id="status-text">Stopped</span>
+      </span>
+    </div>
+
+    <div class="video-area" id="video-area">
+      <video id="vid" autoplay muted playsinline style="transform:scaleX(-1)"></video>
+      <canvas id="overlay"></canvas>
+      <div class="video-placeholder" id="placeholder">
+        <div class="cam-icon">
+          <svg width="24" height="24" fill="none" stroke="#666" stroke-width="1.5" viewBox="0 0 24 24">
+            <path d="M15 10l4.553-2.07A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.9L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+          </svg>
+        </div>
+        <span style="font-size:13px">Click <strong>Start camera</strong> to begin</span>
+        <span style="font-size:12px;color:#888">Allow camera access when prompted</span>
+      </div>
+    </div>
+
+    <div style="padding:10px 16px;border-top:0.5px solid var(--border);display:flex;align-items:center;gap:6px">
+      <span style="font-size:12px;color:var(--text2)">Predict every</span>
+      <input type="range" min="500" max="4000" step="500" value="1500" id="interval-slider"
+             oninput="PREDICT_INTERVAL=+this.value;document.getElementById('iv').textContent=this.value+'ms'">
+      <span class="slider-val" id="iv">1500ms</span>
+    </div>
+
+    <div class="cam-controls">
+      <button class="primary" id="btn-start" onclick="startCamera()">Start camera</button>
+      <button id="btn-stop" onclick="stopCamera()" disabled>Stop</button>
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="m-live" onclick="setMode('live')">Live API</button>
+        <button class="mode-btn" id="m-demo" onclick="setMode('demo')">Demo mode</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right-col">
+
+    <!-- Detected sign -->
+    <div class="card">
+      <div class="card-inner">
+        <div class="card-label">Detected sign</div>
+        <div class="sign-display empty" id="current-sign">Waiting…</div>
+        <div id="conf-bars" style="margin-top:10px"></div>
+      </div>
+    </div>
+
+    <!-- Next sign -->
+    <div class="card">
+      <div class="card-inner">
+        <div class="card-label">Next sign prediction</div>
+        <div class="chips" id="next-chips">
+          <span class="chip empty">No prediction yet</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sentence -->
+    <div class="card sentence-card">
+      <div class="card-inner">
+        <div class="card-label">Sentence</div>
+        <div class="sentence-text empty" id="sentence-el">Signs will appear here</div>
+        <div class="history-row" id="history-row"></div>
+        <div class="sentence-actions">
+          <button class="btn-sm" onclick="resetSentence()">Clear</button>
+          <button class="btn-sm" id="btn-copy" onclick="copySentence()">Copy text</button>
+          <button class="btn-sm" onclick="speakSentence()">Speak</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- API config -->
+    <div class="card">
+      <div class="card-inner">
+        <div class="card-label">FastAPI server</div>
+        <div class="api-row">
+          <input class="api-input" id="api-url" value="http://localhost:8000"
+                 placeholder="http://localhost:8000">
+          <button class="btn-sm" onclick="testApi()">Test</button>
+        </div>
+        <div class="err" id="api-msg"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const vid        = document.getElementById('vid');
+const overlay    = document.getElementById('overlay');
+const ctx        = overlay.getContext('2d');
+const dot        = document.getElementById('dot');
+const statusText = document.getElementById('status-text');
+const fpsBadge   = document.getElementById('fps-badge');
+const placeholder= document.getElementById('placeholder');
+
+const signEl     = document.getElementById('current-sign');
+const confBars   = document.getElementById('conf-bars');
+const nextChips  = document.getElementById('next-chips');
+const sentenceEl = document.getElementById('sentence-el');
+const historyRow = document.getElementById('history-row');
+const apiMsg     = document.getElementById('api-msg');
+const btnStart   = document.getElementById('btn-start');
+const btnStop    = document.getElementById('btn-stop');
+
+let stream = null, rafId = null, running = false;
+let mode   = 'live';
+let PREDICT_INTERVAL = 1500;
+let lastPredictTs = 0;
+let frameCount = 0, fpsTick = 0, fps = 0;
+
+// Rolling 20-frame window of fake landmark vectors (real landmarks need MediaPipe JS)
+const SEQ_LEN = 20, FEAT = 63;
+let rollingWindow = [];
+
+// Demo sequence
+const DEMO = [
+  {current_sign:'HELLO',  confidence:0.91, top_predictions:[{sign:'HELLO',confidence:0.91},{sign:'HI',confidence:0.06},{sign:'BYE',confidence:0.03}], next_prediction:'HOW',   next_suggestions:['HOW','YOU','WHAT'], sentence:'Hello', history:['HELLO']},
+  {current_sign:'HOW',    confidence:0.83, top_predictions:[{sign:'HOW',confidence:0.83},{sign:'WHAT',confidence:0.12},{sign:'WHY',confidence:0.05}],  next_prediction:'YOU',   next_suggestions:['YOU','ARE','I'],    sentence:'Hello how', history:['HELLO','HOW']},
+  {current_sign:'YOU',    confidence:0.78, top_predictions:[{sign:'YOU',confidence:0.78},{sign:'YOUR',confidence:0.14},{sign:'WE',confidence:0.08}],   next_prediction:'WANT',  next_suggestions:['WANT','GO','LIKE'], sentence:'Hello how you', history:['HELLO','HOW','YOU']},
+  {current_sign:'WANT',   confidence:0.88, top_predictions:[{sign:'WANT',confidence:0.88},{sign:'NEED',confidence:0.08},{sign:'LIKE',confidence:0.04}],next_prediction:'FOOD',  next_suggestions:['FOOD','WATER','GO'],sentence:'Hello how you want', history:['HELLO','HOW','YOU','WANT']},
+  {current_sign:'FOOD',   confidence:0.93, top_predictions:[{sign:'FOOD',confidence:0.93},{sign:'EAT',confidence:0.05},{sign:'DRINK',confidence:0.02}],next_prediction:'PLEASE',next_suggestions:['PLEASE','YES','NO'],sentence:'Hello how you want food', history:['HELLO','HOW','YOU','WANT','FOOD']},
+  {current_sign:'PLEASE', confidence:0.86, top_predictions:[{sign:'PLEASE',confidence:0.86},{sign:'SORRY',confidence:0.09},{sign:'YES',confidence:0.05}],next_prediction:'THANK_YOU',next_suggestions:['THANK_YOU','OK','YES'],sentence:'Hello how you want food please', history:['HELLO','HOW','YOU','WANT','FOOD','PLEASE']},
+];
+let demoIdx = 0;
+
+// ── Mode ──────────────────────────────────────────────────────────────────────
+function setMode(m) {
+  mode = m;
+  document.getElementById('m-live').className = 'mode-btn' + (m==='live' ? ' active' : '');
+  document.getElementById('m-demo').className = 'mode-btn' + (m==='demo' ? ' active' : '');
+  apiMsg.className = 'err';
+  apiMsg.textContent = '';
+}
+
+// ── Camera ────────────────────────────────────────────────────────────────────
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 640, height: 480, facingMode: 'user' }
+    });
+    vid.srcObject = stream;
+    await vid.play();
+    running = true;
+    placeholder.style.display = 'none';
+    btnStart.disabled = true;
+    btnStop.disabled = false;
+    dot.className = 'dot on';
+    statusText.textContent = 'Live';
+    loop();
+  } catch(e) {
+    apiMsg.className = 'err';
+    apiMsg.textContent = 'Camera error: ' + e.message;
+  }
+}
+
+function stopCamera() {
+  running = false;
+  if(stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  if(rafId)  { cancelAnimationFrame(rafId); rafId = null; }
+  vid.srcObject = null;
+  placeholder.style.display = 'flex';
+  btnStart.disabled = false;
+  btnStop.disabled = true;
+  dot.className = 'dot';
+  statusText.textContent = 'Stopped';
+  fpsBadge.textContent = '';
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+  rollingWindow = [];
+}
+
+// ── Main loop ─────────────────────────────────────────────────────────────────
+function loop(ts = 0) {
+  if(!running) return;
+  rafId = requestAnimationFrame(loop);
+
+  frameCount++;
+  if(ts - fpsTick > 1000) {
+    fps = frameCount;
+    frameCount = 0;
+    fpsTick = ts;
+    fpsBadge.textContent = fps + ' fps';
+  }
+
+  if(vid.readyState >= 2) {
+    syncCanvasSize();
+    drawMirroredFrame();
+    drawLandmarkOverlay(ts);
+    collectFakeFrame(ts);   // Replace with real MediaPipe JS landmarks if desired
+  }
+
+  if(ts - lastPredictTs > PREDICT_INTERVAL && rollingWindow.length >= SEQ_LEN) {
+    lastPredictTs = ts;
+    runPredict();
+  }
+}
+
+function syncCanvasSize() {
+  const r = vid.getBoundingClientRect();
+  if(overlay.width !== vid.videoWidth)  overlay.width  = vid.videoWidth  || 640;
+  if(overlay.height !== vid.videoHeight) overlay.height = vid.videoHeight || 480;
+}
+
+function drawMirroredFrame() {
+  const w = overlay.width, h = overlay.height;
+  ctx.save();
+  ctx.scale(-1, 1);
+  ctx.translate(-w, 0);
+  ctx.drawImage(vid, 0, 0, w, h);
+  ctx.restore();
+}
+
+function drawLandmarkOverlay(ts) {
+  const w = overlay.width, h = overlay.height;
+  const t = ts * 0.001;
+
+  // Guide circle that pulses subtly
+  const cx = w * 0.5, cy = h * 0.42;
+  const r  = Math.min(w, h) * 0.28 + Math.sin(t * 1.5) * 6;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([8, 5]);
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // Instruction overlay at top
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.beginPath(); roundRect(ctx, 12, 12, 200, 30, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.88)';
+  ctx.font = '13px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('Place hand inside the circle', 22, 32);
+
+  // Prediction countdown bar
+  const elapsed  = ts - lastPredictTs;
+  const progress = Math.min(elapsed / PREDICT_INTERVAL, 1);
+  const bw = w - 24;
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.beginPath(); roundRect(ctx, 12, h - 18, bw, 6, 3); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.beginPath(); roundRect(ctx, 12, h - 18, bw * progress, 6, 3); ctx.fill();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
+// Simulate landmark collection.
+// In production, replace this with real MediaPipe HandLandmarker JS:
+//   https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker/web_js
+function collectFakeFrame(ts) {
+  const seed = ts * 0.001;
+  const frame = [];
+  for(let i = 0; i < FEAT; i++) {
+    frame.push(Math.sin(seed * (i * 0.37 + 1.1)) * 0.5);
+  }
+  rollingWindow.push(frame);
+  if(rollingWindow.length > SEQ_LEN) rollingWindow.shift();
+}
+
+// ── Prediction ────────────────────────────────────────────────────────────────
+async function runPredict() {
+  if(mode === 'demo') { runDemo(); return; }
+
+  const url = document.getElementById('api-url').value.trim();
+  if(!url) return;
+
+  dot.className = 'dot detecting';
+  statusText.textContent = 'Detecting…';
+
+  const seq = rollingWindow.slice(-SEQ_LEN);
+
+  try {
+    const res = await fetch(url + '/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sequence: seq, top_k: 3 }),
+      signal: AbortSignal.timeout(4000)
+    });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    renderResult(data);
+    apiMsg.className = 'ok';
+    apiMsg.textContent = 'Connected — last update: ' + new Date().toLocaleTimeString();
+  } catch(e) {
+    apiMsg.className = 'err';
+    apiMsg.textContent = e.name === 'TimeoutError'
+      ? 'API timeout — is the server running?'
+      : 'API error: ' + e.message;
+  } finally {
+    dot.className = running ? 'dot on' : 'dot';
+    statusText.textContent = running ? 'Live' : 'Stopped';
+  }
+}
+
+function runDemo() {
+  const data = DEMO[demoIdx % DEMO.length];
+  demoIdx++;
+  renderResult(data);
+  apiMsg.className = 'ok';
+  apiMsg.textContent = 'Demo mode — simulated predictions';
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderResult(data) {
+  const sign  = data.current_sign || '';
+  const tops  = data.top_predictions || [];
+  const nexts = data.next_suggestions || (data.next_prediction ? [data.next_prediction] : []);
+  const sent  = data.sentence || '';
+  const hist  = data.history || [];
+
+  // Sign display
+  const isEmpty = !sign || sign === 'UNCERTAIN';
+  signEl.className = isEmpty ? 'sign-display empty' : 'sign-display sign-flash';
+  signEl.textContent = isEmpty ? 'No sign detected' : sign;
+
+  // Confidence bars
+  confBars.innerHTML = tops.map(p => `
+    <div class="conf-row">
+      <span class="conf-name" title="${p.sign}">${p.sign}</span>
+      <div class="conf-track">
+        <div class="conf-fill" style="width:${Math.round(p.confidence*100)}%"></div>
+      </div>
+      <span class="conf-pct">${Math.round(p.confidence*100)}%</span>
+    </div>`).join('');
+
+  // Next signs
+  if(nexts.length) {
+    nextChips.innerHTML = nexts.map((n, i) =>
+      `<span class="chip${i === 0 ? ' top' : ''}">${n}</span>`
+    ).join('');
+  } else {
+    nextChips.innerHTML = '<span class="chip empty">No prediction yet</span>';
+  }
+
+  // Sentence
+  sentenceEl.className = sent ? 'sentence-text' : 'sentence-text empty';
+  sentenceEl.textContent = sent
+    ? sent.charAt(0).toUpperCase() + sent.slice(1)
+    : 'Signs will appear here';
+
+  // History chips
+  historyRow.innerHTML = hist.map((h, i) =>
+    `<span class="hist-chip${i === hist.length - 1 ? ' latest' : ''}">${h}</span>`
+  ).join('');
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+async function resetSentence() {
+  signEl.className = 'sign-display empty';
+  signEl.textContent = 'Waiting…';
+  confBars.innerHTML = '';
+  nextChips.innerHTML = '<span class="chip empty">No prediction yet</span>';
+  sentenceEl.className = 'sentence-text empty';
+  sentenceEl.textContent = 'Signs will appear here';
+  historyRow.innerHTML = '';
+  demoIdx = 0;
+  const url = document.getElementById('api-url').value.trim();
+  if(mode === 'live' && url) {
+    try { await fetch(url + '/sentence/reset', { method: 'POST' }); } catch(e) {}
+  }
+}
+
+function copySentence() {
+  const txt = sentenceEl.textContent;
+  if(sentenceEl.classList.contains('empty')) return;
+  navigator.clipboard?.writeText(txt).catch(() => {});
+  const btn = document.getElementById('btn-copy');
+  const orig = btn.textContent;
+  btn.textContent = 'Copied!';
+  setTimeout(() => { btn.textContent = orig; }, 1500);
+}
+
+function speakSentence() {
+  const txt = sentenceEl.textContent;
+  if(sentenceEl.classList.contains('empty') || !window.speechSynthesis) return;
+  const utt = new SpeechSynthesisUtterance(txt);
+  utt.rate = 0.95;
+  window.speechSynthesis.speak(utt);
+}
+
+async function testApi() {
+  const url = document.getElementById('api-url').value.trim();
+  apiMsg.className = 'err';
+  apiMsg.textContent = 'Testing…';
+  try {
+    const res = await fetch(url + '/', { signal: AbortSignal.timeout(3000) });
+    if(res.ok) {
+      apiMsg.className = 'ok';
+      apiMsg.textContent = 'API is reachable';
+    } else {
+      apiMsg.className = 'err';
+      apiMsg.textContent = 'API returned status ' + res.status;
+    }
+  } catch(e) {
+    apiMsg.className = 'err';
+    apiMsg.textContent = 'Cannot reach API — is uvicorn running?';
+  }
+}
+</script>
+</body>
+</html>
